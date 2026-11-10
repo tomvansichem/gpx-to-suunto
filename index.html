@@ -1,0 +1,1543 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Turn-by-turn for Suunto: add turn cues to any GPX</title>
+    <meta name="description" content="Convert a GPX from Strava, Komoot or Garmin into a Suunto route with turn-by-turn navigation. Free, runs in your browser, nothing is uploaded.">
+    <meta name="theme-color" content="#1E3FE0">
+    <!-- Set SITE_URL to the final address before deploying: og:url and og:image must be absolute. -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Turn-by-turn for Suunto">
+    <meta property="og:description" content="Strava or Komoot route without turn cues on your Suunto? Drop the GPX here and get one with turn-by-turn. Free, nothing uploaded.">
+    <meta property="og:url" content="https://SITE_URL/">
+    <meta property="og:image" content="https://SITE_URL/og.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="The headline Get turn-by-turn on your Suunto next to a race bib with an example route map, its turn count and a Download Suunto GPX strip.">
+    <meta name="twitter:card" content="summary_large_image">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231E3FE0'/%3E%3Cpath d='M12 26V14h10' fill='none' stroke='%23fff' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M18 9.5l5 4.5-5 4.5' fill='none' stroke='%23FFD60A' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+    <link rel="preload" href="fonts/big-shoulders-display-latin.woff2" as="font" type="font/woff2" crossorigin>
+    <style>
+        @layer reset, tokens, base, primitives, components, blocks, utilities;
+
+        @font-face {
+            font-family: "Big Shoulders Display";
+            src: url("fonts/big-shoulders-display-latin.woff2") format("woff2");
+            font-weight: 100 900;
+            font-style: normal;
+            font-display: swap;
+        }
+
+        /* ---------- Reset ---------- */
+        @layer reset {
+
+            *,
+            *::before,
+            *::after {
+                box-sizing: border-box;
+            }
+
+            body,
+            h1,
+            h2,
+            h3,
+            p,
+            ol,
+            ul,
+            dl,
+            dd {
+                margin: 0;
+            }
+
+            ol[class],
+            ul[class] {
+                list-style: none;
+                padding: 0;
+            }
+
+            button,
+            input,
+            select {
+                font: inherit;
+            }
+
+            summary {
+                list-style: none;
+            }
+
+            summary::-webkit-details-marker {
+                display: none;
+            }
+
+            /* Important inside the lowest layer wins over every higher one: hidden means hidden. */
+            [hidden] {
+                display: none !important;
+            }
+
+            @media (prefers-reduced-motion: reduce) {
+
+                *,
+                *::before,
+                *::after {
+                    transition: none !important;
+                    animation: none !important;
+                }
+            }
+        }
+
+        /* ---------- Tokens ---------- */
+        @layer tokens {
+            :root {
+                color-scheme: light;
+
+                /* Colour roles */
+                --clr-ground: #E4E8E1;
+                --clr-ink: #121417;
+                --clr-ink-muted: #4C535C;
+                --clr-rule: #C3C9C0;
+                --clr-field: var(--clr-ground);
+                --clr-accent: #1E3FE0;
+                --clr-accent-text: #1E3FE0;
+                --clr-on-accent: #FFFFFF;
+                --clr-on-accent-muted: rgb(255 255 255 / .72);
+                --clr-highlight: #FFD60A;
+                --clr-highlight-hover: #FFE24D;
+                --clr-on-highlight: #121417;
+                --clr-disabled: #ECEDE8;
+                --clr-on-disabled: #6A7078;
+                --clr-warn: #FFF1B0;
+                --clr-on-warn: #3D3100;
+                --clr-error: #B3261E;
+
+                /* The bib is a physical object: its colours never follow the colour scheme. */
+                --clr-bib: #F8F9F6;
+                --clr-bib-ink: #121417;
+                --clr-bib-muted: #4C535C;
+
+                /* Type */
+                --ff-display: "Big Shoulders Display", "Arial Narrow", sans-serif;
+                --ff-text: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+                --fs-h1: clamp(2.5rem, 13cqi, 4rem);
+                --fs-h2: clamp(1.9rem, 5vw, 2.75rem);
+                --fs-subhead: clamp(1.6rem, 4vw, 2rem);
+                --fs-h3: 1.15rem;
+                --fs-lead: clamp(1.05rem, 2.4vw, 1.2rem);
+                --fs-action: 1.1rem;
+                --fs-body: 1rem;
+                --fs-small: .875rem;
+                --fs-label: .8rem;
+                --lh-display: .9;
+                --lh-body: 1.55;
+                --measure: 66ch;
+
+                /* Space */
+                --space-3xs: .25rem;
+                --space-2xs: .5rem;
+                --space-xs: .75rem;
+                --space-s: 1rem;
+                --space-m: 1.5rem;
+                --space-l: 2rem;
+                --space-xl: 3rem;
+                --space-section: clamp(2.5rem, 7vw, 5.5rem);
+                --gutter: clamp(1rem, 4vw, 2.5rem);
+
+                /* Shape and motion */
+                --radius-s: .25rem;
+                --radius-m: .5rem;
+                --radius-l: .625rem;
+                --radius-xl: 1rem;
+                --shadow-object: 0 1px 0 rgb(18 20 23 / .14), 0 18px 40px -22px rgb(18 20 23 / .55);
+                --ease-out: cubic-bezier(.16, 1, .3, 1);
+                --duration-s: .15s;
+                --duration-m: .2s;
+            }
+
+            @media (prefers-color-scheme: dark) {
+                :root {
+                    color-scheme: dark;
+                    --clr-ground: #101317;
+                    --clr-ink: #E9EBEE;
+                    --clr-ink-muted: #A4ABB4;
+                    --clr-rule: #2A3038;
+                    --clr-field: #181C21;
+                    --clr-accent-text: #8DA0FF;
+                    --clr-warn: #3A3110;
+                    --clr-on-warn: #F6E7A6;
+                    --clr-error: #FF9C94;
+                }
+            }
+        }
+
+        /* ---------- Base: element defaults are the type roles ---------- */
+        @layer base {
+            html {
+                background: var(--clr-ground);
+                scrollbar-color: var(--clr-ink-muted) var(--clr-ground);
+                -webkit-text-size-adjust: 100%;
+            }
+
+            body {
+                color: var(--clr-ink);
+                background: var(--clr-ground);
+                font: var(--fs-body)/var(--lh-body) var(--ff-text);
+                caret-color: var(--clr-accent);
+            }
+
+            ::selection {
+                background: var(--clr-accent);
+                color: var(--clr-on-accent);
+            }
+
+            h1,
+            h2,
+            [data-type="subhead"] {
+                font-family: var(--ff-display);
+                font-weight: 900;
+                line-height: var(--lh-display);
+                text-transform: uppercase;
+                text-wrap: balance;
+            }
+
+            h1 {
+                font-size: var(--fs-h1);
+                letter-spacing: -.005em;
+            }
+
+            h1 em {
+                font-style: normal;
+                color: var(--clr-accent-text);
+            }
+
+            h2 {
+                font-size: var(--fs-h2);
+                line-height: .95;
+            }
+
+            [data-type="subhead"] {
+                font-size: var(--fs-subhead);
+            }
+
+            h3 {
+                font-size: var(--fs-h3);
+            }
+
+            [data-type="lead"] {
+                font-size: var(--fs-lead);
+                max-inline-size: min(34ch, 100%);
+                text-wrap: pretty;
+            }
+
+            strong {
+                color: var(--clr-ink);
+            }
+
+            a {
+                color: var(--clr-ink);
+                text-underline-offset: .2em;
+                text-decoration-thickness: 1px;
+            }
+
+            a:hover {
+                text-decoration-thickness: 2px;
+            }
+
+            /* One focus rule for everything interactive. */
+            :focus-visible {
+                outline: 3px solid var(--clr-accent);
+                outline-offset: 3px;
+                border-radius: var(--radius-s);
+            }
+
+            input[type=number],
+            select {
+                inline-size: 100%;
+                min-block-size: 2.75rem;
+                padding: .625rem;
+                border: 1.5px solid var(--clr-rule);
+                border-radius: var(--radius-m);
+                background: var(--clr-field);
+                color: var(--clr-ink);
+                font-weight: 600;
+                font-variant-numeric: tabular-nums;
+            }
+
+            input[type=number]:hover,
+            select:hover {
+                border-color: var(--clr-ink-muted);
+            }
+
+            /* Drag-and-drop works over the whole page. */
+            body[data-dragging]::after {
+                content: "Drop the GPX anywhere";
+                position: fixed;
+                inset: var(--space-xs);
+                z-index: 10;
+                display: grid;
+                place-items: center;
+                border: 3px dashed var(--clr-accent);
+                border-radius: var(--radius-xl);
+                background: color-mix(in srgb, var(--clr-ground) 88%, transparent);
+                color: var(--clr-accent-text);
+                font: 900 clamp(2rem, 6vw, 3.5rem)/1 var(--ff-display);
+                text-transform: uppercase;
+                pointer-events: none;
+            }
+        }
+
+        /* ---------- Layout primitives (Every Layout) ---------- */
+        @layer primitives {
+            .center {
+                box-sizing: content-box;
+                max-inline-size: 70rem;
+                margin-inline: auto;
+                padding-inline: var(--gutter);
+            }
+
+            .stack {
+                display: flex;
+                flex-direction: column;
+                justify-content: flex-start;
+            }
+
+            .stack > * + * {
+                margin-block-start: var(--stack-space, var(--space-m));
+            }
+
+            .cluster {
+                display: flex;
+                flex-wrap: wrap;
+                gap: var(--cluster-space, var(--space-s));
+                justify-content: var(--cluster-justify, flex-start);
+                align-items: var(--cluster-align, center);
+            }
+
+            .grid {
+                display: grid;
+                gap: var(--grid-gap, var(--space-m));
+                grid-template-columns: repeat(auto-fit, minmax(min(var(--grid-min, 16rem), 100%), 1fr));
+            }
+        }
+
+        /* ---------- Components ---------- */
+        @layer components {
+            .icon {
+                flex: none;
+                inline-size: var(--icon-size, 1.25rem);
+                block-size: var(--icon-size, 1.25rem);
+                translate: 0 var(--icon-shift, 0);
+                transition: translate var(--duration-s) var(--ease-out);
+            }
+
+            .skip-link {
+                position: absolute;
+                inset-block-start: var(--space-2xs);
+                inset-inline-start: var(--space-2xs);
+                z-index: 20;
+                padding: var(--space-2xs) var(--space-s);
+                border-radius: var(--radius-m);
+                background: var(--clr-accent);
+                color: var(--clr-on-accent);
+                font-weight: 700;
+                translate: 0 -200%;
+            }
+
+            .skip-link:focus-visible {
+                translate: 0 0;
+            }
+
+            .site-header {
+                --cluster-justify: space-between;
+                --cluster-align: baseline;
+                --cluster-space: var(--space-2xs) var(--space-s);
+                padding-block: 1.125rem;
+                border-block-end: 1px solid var(--clr-rule);
+            }
+
+            .site-header__name {
+                font: 800 1.15rem/1 var(--ff-display);
+                letter-spacing: .04em;
+                text-transform: uppercase;
+                text-decoration: none;
+            }
+
+            .site-header__meta,
+            .site-footer {
+                font-size: var(--fs-small);
+                color: var(--clr-ink-muted);
+            }
+
+            /* Primary action; also used as the label that wraps the file input. */
+            .button {
+                --icon-size: 1.375rem;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: var(--space-2xs);
+                inline-size: 100%;
+                max-inline-size: 26rem;
+                min-block-size: 3.625rem;
+                padding: .875rem 1.375rem;
+                border-radius: var(--radius-l);
+                background: var(--clr-accent);
+                color: var(--clr-on-accent);
+                font: 700 var(--fs-action)/1.2 var(--ff-text);
+                cursor: pointer;
+                box-shadow: 0 10px 24px -14px var(--clr-accent);
+                transition: translate var(--duration-s) var(--ease-out), box-shadow var(--duration-s);
+            }
+
+            .button:hover {
+                translate: 0 -1px;
+                box-shadow: 0 14px 28px -12px var(--clr-accent);
+            }
+
+            .button:active {
+                translate: 0 1px;
+                box-shadow: 0 6px 16px -12px var(--clr-accent);
+            }
+
+            .button:has(:focus-visible) {
+                outline: 3px solid var(--clr-ink);
+                outline-offset: 3px;
+            }
+
+            .button__input {
+                position: absolute;
+                inline-size: 1px;
+                block-size: 1px;
+                opacity: 0;
+                pointer-events: none;
+            }
+
+            .proof {
+                display: flex;
+                align-items: flex-start;
+                gap: .625rem;
+                max-inline-size: min(40ch, 100%);
+                font-size: .95rem;
+                color: var(--clr-ink-muted);
+            }
+
+            .proof__icon {
+                --icon-size: 1.125rem;
+                margin-block-start: 2px;
+                color: var(--clr-ink);
+            }
+
+            .notice:empty {
+                display: none;
+            }
+
+            .notice {
+                max-inline-size: min(46ch, 100%);
+            }
+
+            .notice[data-tone="error"] {
+                color: var(--clr-error);
+                font-weight: 600;
+            }
+
+            .notice[data-tone="warn"] {
+                padding: var(--space-xs) .875rem;
+                border-radius: var(--radius-m);
+                background: var(--clr-warn);
+                color: var(--clr-on-warn);
+                font-size: .95rem;
+            }
+
+            /* The bib: the converted route as a race start number. */
+            .bib {
+                container: bib / inline-size;
+                position: relative;
+                overflow: hidden;
+                inline-size: 100%;
+                max-inline-size: 35rem;
+                border-radius: var(--radius-m);
+                background: var(--clr-bib);
+                color: var(--clr-bib-ink);
+                box-shadow: var(--shadow-object);
+                rotate: -.6deg;
+            }
+
+            .bib__hole {
+                position: absolute;
+                z-index: 2;
+                inline-size: 11px;
+                block-size: 11px;
+                border-radius: 50%;
+                background: var(--clr-ground);
+                box-shadow: inset 0 1px 2px rgb(0 0 0 / .35);
+            }
+
+            .bib__hole[data-corner^="top"] {
+                inset-block-start: var(--space-xs);
+            }
+
+            .bib__hole[data-corner^="bottom"] {
+                inset-block-end: 4.625rem;
+            }
+
+            .bib__hole[data-corner$="start"] {
+                inset-inline-start: var(--space-xs);
+            }
+
+            .bib__hole[data-corner$="end"] {
+                inset-inline-end: var(--space-xs);
+            }
+
+            .bib__band {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                gap: var(--space-s);
+                padding: .9375rem 2.25rem .8125rem;
+                background: var(--clr-accent);
+                color: var(--clr-on-accent);
+                font: 800 1.3rem/1 var(--ff-display);
+                letter-spacing: .05em;
+                text-transform: uppercase;
+            }
+
+            .bib__title {
+                min-inline-size: 0;
+                overflow: hidden;
+                font: inherit;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .bib__tag {
+                flex: none;
+                color: var(--clr-on-accent-muted);
+            }
+
+            @container bib (inline-size < 26rem) {
+                .bib__tag {
+                    display: none;
+                }
+            }
+
+            .bib__count {
+                display: flex;
+                align-items: flex-end;
+                gap: .875rem;
+                padding: .875rem var(--space-m) 0;
+            }
+
+            .bib__count-value {
+                font: 900 clamp(6.5rem, 30vw, 9.5rem)/.8 var(--ff-display);
+                font-variant-numeric: tabular-nums;
+                letter-spacing: -.01em;
+            }
+
+            .bib__count-text {
+                display: grid;
+                gap: .375rem;
+                padding-block-end: var(--space-2xs);
+                color: var(--clr-bib-muted);
+            }
+
+            .bib__count-label {
+                font: 800 1.35rem/1 var(--ff-display);
+                letter-spacing: .03em;
+                text-transform: uppercase;
+            }
+
+            .bib__count-meta {
+                font-size: .95rem;
+                line-height: 1.2;
+            }
+
+            .bib__map {
+                padding: .375rem .875rem 0;
+            }
+
+            .bib__plot {
+                display: block;
+                inline-size: 100%;
+                block-size: auto;
+            }
+
+            .bib__empty {
+                display: grid;
+                place-items: center;
+                aspect-ratio: 640 / 400;
+                margin: .375rem var(--space-3xs) 0;
+                padding: var(--space-s) var(--space-l);
+                color: var(--clr-bib-muted);
+                text-align: center;
+                text-wrap: pretty;
+            }
+
+            .bib__route {
+                fill: none;
+                stroke: var(--clr-bib-ink);
+                stroke-width: 2.4;
+                stroke-linejoin: round;
+                stroke-linecap: round;
+                transition: opacity var(--duration-m);
+            }
+
+            .bib__turn {
+                fill: var(--clr-accent);
+                stroke: var(--clr-bib);
+                stroke-width: 1.6;
+                transition: opacity var(--duration-m), r var(--duration-m) var(--ease-out);
+            }
+
+            .bib__start {
+                fill: var(--clr-bib);
+                stroke: var(--clr-bib-ink);
+                stroke-width: 3;
+            }
+
+            .bib__finish {
+                fill: var(--clr-bib-ink);
+            }
+
+            /* A focused turn lifts while the rest of the route steps back. */
+            .bib[data-focus] .bib__route {
+                opacity: .28;
+            }
+
+            .bib[data-focus] .bib__turn {
+                opacity: .22;
+            }
+
+            .bib[data-focus] .bib__turn[data-state="hot"] {
+                opacity: 1;
+                r: 10;
+                stroke: var(--clr-bib-ink);
+            }
+
+            .bib[data-drawing] .bib__route {
+                stroke-dasharray: 1;
+                animation: bib-draw 1.1s var(--ease-out) both;
+            }
+
+            .bib[data-drawing] .bib__turn {
+                animation: bib-pop .4s var(--ease-out) .7s both;
+            }
+
+            @keyframes bib-draw {
+                from {
+                    stroke-dashoffset: 1;
+                }
+
+                to {
+                    stroke-dashoffset: 0;
+                }
+            }
+
+            @keyframes bib-pop {
+                from {
+                    opacity: 0;
+                }
+            }
+
+            .bib__stats {
+                --cluster-space: var(--space-2xs) 1.75rem;
+                padding: .375rem 1.875rem 2.125rem;
+            }
+
+            .bib__stat-label {
+                font-size: var(--fs-label);
+                color: var(--clr-bib-muted);
+            }
+
+            .bib__stat-value {
+                font: 800 1.6rem/1.1 var(--ff-display);
+                font-variant-numeric: tabular-nums;
+            }
+
+            /* The tear-off strip under the perforation is the download. */
+            .bib__tear {
+                --icon-size: 1.375rem;
+                position: relative;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                gap: var(--space-xs);
+                inline-size: 100%;
+                min-block-size: 3.75rem;
+                padding: var(--space-s) var(--space-m);
+                border: 0;
+                background: var(--clr-highlight) linear-gradient(90deg, var(--clr-bib-muted) 50%, transparent 0) top left / 12px 2px repeat-x;
+                color: var(--clr-on-highlight);
+                font: 700 var(--fs-action)/1.2 var(--ff-text);
+                text-align: start;
+                cursor: pointer;
+            }
+
+            .bib__tear::before,
+            .bib__tear::after {
+                content: "";
+                position: absolute;
+                inset-block-start: -9px;
+                inline-size: 18px;
+                block-size: 18px;
+                border-radius: 50%;
+                background: var(--clr-ground);
+            }
+
+            .bib__tear::before {
+                inset-inline-start: -9px;
+            }
+
+            .bib__tear::after {
+                inset-inline-end: -9px;
+            }
+
+            .bib__tear:hover:not(:disabled) {
+                --icon-shift: 2px;
+                background-color: var(--clr-highlight-hover);
+            }
+
+            .bib__tear:focus-visible {
+                outline-color: var(--clr-bib-ink);
+                outline-offset: -5px;
+                border-radius: 0;
+            }
+
+            .bib__tear:disabled {
+                background-color: var(--clr-disabled);
+                color: var(--clr-on-disabled);
+                cursor: not-allowed;
+            }
+
+            /* Hairline disclosure: settings and FAQ. */
+            .disclosure {
+                border-block: 1px solid var(--clr-rule);
+            }
+
+            .disclosure + .disclosure {
+                border-block-start: 0;
+            }
+
+            .disclosure__summary {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                gap: var(--space-s);
+                padding: var(--space-s) 2px;
+                font-weight: 650;
+                cursor: pointer;
+            }
+
+            .disclosure__summary[data-size="large"] {
+                font-size: 1.05rem;
+            }
+
+            .disclosure__icon {
+                flex: none;
+                inline-size: 1.25rem;
+                block-size: 1.25rem;
+                transition: rotate var(--duration-m) var(--ease-out);
+            }
+
+            .disclosure[open] .disclosure__icon {
+                rotate: var(--disclosure-turn, 180deg);
+            }
+
+            .disclosure__icon[data-shape="plus"] {
+                --disclosure-turn: 45deg;
+            }
+
+            .disclosure__body {
+                padding: var(--space-3xs) 2px 1.125rem;
+            }
+
+            .disclosure__text {
+                max-inline-size: min(var(--measure), 100%);
+                padding-inline: 2px;
+                padding-block-end: 1.125rem;
+                color: var(--clr-ink-muted);
+            }
+
+            .field {
+                display: grid;
+                grid-template-columns: 1fr 5.75rem;
+                align-items: center;
+                gap: 2px .875rem;
+            }
+
+            .field + .field {
+                margin-block-start: var(--space-s);
+            }
+
+            .field[data-layout="stacked"] {
+                grid-template-columns: 1fr;
+            }
+
+            .field__label {
+                font-weight: 600;
+            }
+
+            .field__hint {
+                grid-column: 1;
+                font-size: var(--fs-small);
+                color: var(--clr-ink-muted);
+            }
+
+            .field__control {
+                grid-column: 2;
+                grid-row: 1 / span 2;
+            }
+
+            .field[data-layout="stacked"] .field__control {
+                grid-column: 1;
+                grid-row: auto;
+                margin-block-start: .375rem;
+            }
+
+            .turn-list__item {
+                display: flex;
+                align-items: center;
+                gap: .625rem;
+                padding: var(--space-2xs) .375rem;
+                border-block-end: 1px solid var(--clr-rule);
+                border-radius: var(--radius-s);
+                transition: background var(--duration-s);
+            }
+
+            .turn-list__item:hover,
+            .turn-list__item[data-state="hot"] {
+                background: color-mix(in srgb, var(--clr-accent) 12%, transparent);
+            }
+
+            .turn-list__icon {
+                --icon-size: 1.5rem;
+                color: var(--clr-accent-text);
+            }
+
+            .turn-list__label {
+                flex: 1;
+            }
+
+            .turn-list__km {
+                font-variant-numeric: tabular-nums;
+                color: var(--clr-ink-muted);
+                text-align: end;
+            }
+
+            .turn-list__item[data-state="empty"] {
+                color: var(--clr-ink-muted);
+            }
+
+            .steps {
+                --grid-gap: 1.75rem clamp(1.5rem, 4vw, 3rem);
+                --grid-min: 15rem;
+                counter-reset: step;
+            }
+
+            .steps__item {
+                --stack-space: var(--space-2xs);
+                counter-increment: step;
+                max-inline-size: min(46ch, 100%);
+            }
+
+            .steps__item::before {
+                content: counter(step);
+                margin-block-end: .875rem;
+                font: 900 4.5rem/.8 var(--ff-display);
+                color: var(--clr-accent-text);
+            }
+
+            .section {
+                --stack-space: 1.125rem;
+                padding-block: var(--space-section);
+                border-block-start: 1px solid var(--clr-rule);
+            }
+
+            .site-footer {
+                padding-block: 1.75rem 2.5rem;
+                border-block-start: 1px solid var(--clr-rule);
+            }
+
+            .site-footer__inner {
+                --cluster-justify: space-between;
+                --cluster-space: .625rem var(--space-m);
+            }
+
+            .site-footer__link {
+                color: inherit;
+                text-decoration-color: var(--clr-rule);
+            }
+
+            .site-footer__link:hover {
+                color: var(--clr-ink);
+            }
+        }
+
+        /* ---------- Blocks: page layout only ---------- */
+        @layer blocks {
+            .tool {
+                display: grid;
+                grid-template-areas: "intro" "result" "turns";
+                gap: var(--space-l);
+                padding-block: clamp(1.75rem, 6vw, 4.5rem) clamp(2.5rem, 7vw, 5.5rem);
+            }
+
+            /* Structural: the turn list moves under the intro so it sits beside the map it highlights. */
+            @media (min-width: 56.25rem) {
+                .tool {
+                    grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+                    grid-template-rows: auto 1fr;
+                    grid-template-areas: "intro result" "turns result";
+                    gap: 2.5rem clamp(2.5rem, 6vw, 5.5rem);
+                    align-items: start;
+                }
+            }
+
+            .tool__intro {
+                --stack-space: var(--space-m);
+                grid-area: intro;
+                container-type: inline-size;
+            }
+
+            .tool__hint {
+                display: none;
+                margin-block-start: var(--space-2xs);
+                font-size: .9rem;
+                color: var(--clr-ink-muted);
+            }
+
+            @media (hover: hover) and (pointer: fine) {
+                .tool__hint {
+                    display: block;
+                }
+            }
+
+            .tool__result {
+                --stack-space: 1.125rem;
+                grid-area: result;
+                justify-self: center;
+                inline-size: 100%;
+                max-inline-size: 35rem;
+            }
+
+            .tool__next {
+                font-size: .95rem;
+                color: var(--clr-ink-muted);
+            }
+
+
+            .tool__turns {
+                --stack-space: .625rem;
+                grid-area: turns;
+                max-inline-size: 32.5rem;
+            }
+
+            .faq {
+                max-inline-size: min(72ch, 100%);
+            }
+        }
+
+        /* ---------- Utilities ---------- */
+        @layer utilities {
+            .nowrap {
+                white-space: nowrap;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <a class="skip-link" href="#title">Skip to the converter</a>
+
+    <header class="site-header center cluster">
+        <a class="site-header__name" href="./">Turn-by-turn for Suunto</a>
+        <span class="site-header__meta">Free · no account · nothing uploaded</span>
+    </header>
+
+    <main>
+        <section class="tool center" aria-labelledby="title">
+            <div class="tool__intro stack">
+                <h1 id="title" tabindex="-1"><span class="nowrap">Get turn-by-turn</span> on your <em>Suunto</em></h1>
+                <p data-type="lead">Routes from Strava, Komoot or Garmin arrive in Suunto without
+                    turn cues, so your watch stays quiet at every junction. Drop the GPX here and get one that talks.</p>
+
+                <label class="button">
+                    <input class="button__input" type="file" id="file" accept=".gpx,application/gpx+xml,text/xml,application/xml">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg>
+                    <span id="pickLabel">Choose a GPX file</span>
+                </label>
+                <p class="tool__hint">or drag it anywhere onto this page</p>
+
+                <p class="proof">
+                    <svg class="proof__icon icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+                    <span><strong>Your file never leaves this device.</strong> Everything runs in your browser; once the
+                        page has loaded it even works with wifi off.</span>
+                </p>
+                <div class="notice" id="msg" role="status" aria-live="polite"></div>
+            </div>
+
+            <div class="tool__result stack">
+                <article class="bib" id="bib" aria-labelledby="bibName">
+                    <span class="bib__hole" data-corner="top-start" aria-hidden="true"></span>
+                    <span class="bib__hole" data-corner="top-end" aria-hidden="true"></span>
+                    <span class="bib__hole" data-corner="bottom-start" aria-hidden="true"></span>
+                    <span class="bib__hole" data-corner="bottom-end" aria-hidden="true"></span>
+                    <header class="bib__band">
+                        <h2 class="bib__title" id="bibName">Your route</h2>
+                        <span class="bib__tag">Turn-by-turn</span>
+                    </header>
+                    <p class="bib__count">
+                        <b class="bib__count-value" id="bibTurns">00</b>
+                        <span class="bib__count-text">
+                            <span class="bib__count-label" id="bibTurnsLabel">turns found</span>
+                            <span class="bib__count-meta" id="bibKm">over – km</span>
+                        </span>
+                    </p>
+                    <div class="bib__map" id="map">
+                        <p class="bib__empty">Choose a GPX file and your route shows up here, with every turn marked.</p>
+                    </div>
+                    <dl class="bib__stats cluster" id="stats">
+                        <div><dt class="bib__stat-label">Elevation gain</dt><dd class="bib__stat-value">–</dd></div>
+                        <div><dt class="bib__stat-label">Highest point</dt><dd class="bib__stat-value">–</dd></div>
+                        <div><dt class="bib__stat-label">Route points</dt><dd class="bib__stat-value">–</dd></div>
+                    </dl>
+                    <button class="bib__tear" id="download" type="button" disabled>
+                        <span>Download Suunto GPX</span>
+                        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v12M7 11l5 5 5-5M5 20h14"/></svg>
+                    </button>
+                </article>
+
+                <p class="tool__next" id="after" hidden><strong>Next:</strong> import the file in the
+                    <a href="https://routeplanner.suunto.com/" target="_blank" rel="noopener noreferrer">Suunto
+                        Routeplanner</a>, save it, then switch on turn-by-turn for the route in the Suunto app.</p>
+
+                <details class="disclosure" id="tune" hidden>
+                    <summary class="disclosure__summary">Adjust turn detection
+                        <svg class="disclosure__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+                    </summary>
+                    <div class="disclosure__body">
+                        <div class="field">
+                            <label class="field__label" for="minAngle">Minimum turn angle (°)</label>
+                            <input class="field__control" type="number" id="minAngle" value="35" min="15" max="120" step="5" inputmode="numeric" aria-describedby="minAngleHint">
+                            <span class="field__hint" id="minAngleHint">Lower finds more turns, higher keeps only clear ones.</span>
+                        </div>
+                        <div class="field">
+                            <label class="field__label" for="win">Look-around distance (m)</label>
+                            <input class="field__control" type="number" id="win" value="20" min="8" max="80" step="1" inputmode="numeric" aria-describedby="winHint">
+                            <span class="field__hint" id="winHint">How far before and after a point the direction is
+                                compared. Larger smooths out GPS wobble on trails.</span>
+                        </div>
+                        <div class="field">
+                            <label class="field__label" for="gap">Minimum gap between turns (m)</label>
+                            <input class="field__control" type="number" id="gap" value="25" min="5" max="200" step="5" inputmode="numeric">
+                        </div>
+                        <div class="field">
+                            <label class="field__label" for="tol">Simplify route (m)</label>
+                            <input class="field__control" type="number" id="tol" value="2" min="0" max="10" step="0.5" inputmode="decimal" aria-describedby="tolHint">
+                            <span class="field__hint" id="tolHint">Removes redundant points. 0 keeps every point.</span>
+                        </div>
+                        <div class="field" data-layout="stacked">
+                            <label class="field__label" for="anchors">Waypoints in the file</label>
+                            <select class="field__control" id="anchors" aria-describedby="anchorsHint">
+                                <option value="ends">Start and end only</option>
+                                <option value="turns">Start, end and every turn</option>
+                            </select>
+                            <span class="field__hint" id="anchorsHint">Pick the second one if Suunto doesn't offer
+                                turn-by-turn for the route.</span>
+                        </div>
+                    </div>
+                </details>
+            </div>
+
+            <section class="tool__turns stack" id="turns" aria-labelledby="turnsTitle" hidden>
+                <h2 id="turnsTitle" data-type="subhead">Every turn on the route</h2>
+                <ol class="turn-list" id="turnList"></ol>
+            </section>
+        </section>
+
+        <section class="section" aria-labelledby="howTitle">
+            <div class="center stack">
+                <h2 id="howTitle">From any planner to your wrist</h2>
+                <ol class="steps grid">
+                    <li class="steps__item stack">
+                        <h3>Export the GPX</h3>
+                        <p>Get the route out of wherever you planned it. Strava and Komoot both offer this on the
+                            route page: look for Export or Download, then pick GPX.</p>
+                        <p>Garmin Connect, RideWithGPS and most race websites have a GPX export too. Tracks and
+                            routes both work.</p>
+                    </li>
+                    <li class="steps__item stack">
+                        <h3>Convert it here</h3>
+                        <p>Choose the file at the top of this page. Every turn is found and written into the file as
+                            a Suunto turn waypoint.</p>
+                        <p>Check the map, then tap Download Suunto GPX.</p>
+                    </li>
+                    <li class="steps__item stack">
+                        <h3>Import it into Suunto</h3>
+                        <p>Import the downloaded file in the <a href="https://routeplanner.suunto.com/"
+                                target="_blank" rel="noopener noreferrer">Suunto Routeplanner</a> and save the route.
+                            Open it in the Suunto app and switch on turn-by-turn.</p>
+                        <p>No turn-by-turn option? Rebuild the file with “Start, end and every turn” under Adjust
+                            turn detection.</p>
+                    </li>
+                </ol>
+            </div>
+        </section>
+
+        <section class="section" aria-labelledby="faqTitle">
+            <div class="center stack">
+                <h2 id="faqTitle">Questions</h2>
+                <div class="faq">
+                    <details class="disclosure">
+                        <summary class="disclosure__summary" data-size="large">Why does my route have no turn-by-turn in Suunto?<svg class="disclosure__icon" data-shape="plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></summary>
+                        <p class="disclosure__text">Turn-by-turn needs turn waypoints in the file. Routes you plan in Suunto get them
+                            automatically. GPX files from Strava, Komoot and most other planners only contain the line
+                            itself. This tool adds the waypoints in the same format Suunto's own route planner uses.</p>
+                    </details>
+                    <details class="disclosure">
+                        <summary class="disclosure__summary" data-size="large">Is my file uploaded anywhere?<svg class="disclosure__icon" data-shape="plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></summary>
+                        <p class="disclosure__text">No. The file is read and converted in your browser, on your device. Once the page has
+                            loaded you can switch off wifi and it still works. The <a href="https://github.com/tomvansichem/gpx-to-suunto">source code is on GitHub</a> if you want to check.</p>
+                    </details>
+                    <details class="disclosure">
+                        <summary class="disclosure__summary" data-size="large">Which Suunto watches does it work with?<svg class="disclosure__icon" data-shape="plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></summary>
+                        <p class="disclosure__text">It writes the same kind of file as Suunto's own route planner, so it
+                            should work on any watch that gives turn-by-turn for routes planned in Suunto. It has only
+                            been tried on one watch, though. This is a free tool, offered as is: there is no support and
+                            no promise that it works with yours.</p>
+                    </details>
+                    <details class="disclosure">
+                        <summary class="disclosure__summary" data-size="large">I get too many or too few turns<svg class="disclosure__icon" data-shape="plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></summary>
+                        <p class="disclosure__text">Open Adjust turn detection below the route. Raise the minimum turn angle to drop gentle
+                            bends, or raise the look-around distance if a twisty trail or GPS wobble creates turns that
+                            aren't there. The map and the list update as you type.</p>
+                    </details>
+                    <details class="disclosure">
+                        <summary class="disclosure__summary" data-size="large">The elevation profile on my watch is flat<svg class="disclosure__icon" data-shape="plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></summary>
+                        <p class="disclosure__text">Then the original file has no elevation data. The tool keeps whatever elevation is in the
+                            file but can't add it. You'll see a warning when that's the case.</p>
+                    </details>
+                    <details class="disclosure">
+                        <summary class="disclosure__summary" data-size="large">Is this an official Suunto tool?<svg class="disclosure__icon" data-shape="plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></summary>
+                        <p class="disclosure__text">No. It's an independent, free tool and isn't affiliated with or endorsed by Suunto.</p>
+                    </details>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="site-footer">
+        <div class="site-footer__inner center cluster">
+            <p>Not affiliated with Suunto. Suunto is a trademark of Suunto Oy.
+                Free to use, offered as is, without support or warranty.</p>
+            <p>Made by <a class="site-footer__link" href="https://apert.be/?utm_source=turn-by-turn-for-suunto&amp;utm_medium=referral&amp;utm_campaign=tbt-tool&amp;utm_content=footer">apert.be</a></p>
+        </div>
+    </footer>
+
+    <script>
+        // CORE-START
+        const R = 6371008.8;
+        const rad = (x) => x * Math.PI / 180;
+
+        function dist(a, b) {
+            const x = rad(b.lon - a.lon) * Math.cos(rad((a.lat + b.lat) / 2));
+            const y = rad(b.lat - a.lat);
+            return Math.hypot(x, y) * R;
+        }
+        function bearing(a, b) {
+            const x = rad(b.lon - a.lon) * Math.cos(rad((a.lat + b.lat) / 2));
+            const y = rad(b.lat - a.lat);
+            return Math.atan2(x, y) * 180 / Math.PI;
+        }
+        function angDiff(b1, b2) {
+            let d = b2 - b1;
+            while (d > 180) d -= 360;
+            while (d <= -180) d += 360;
+            return d;
+        }
+
+        function cleanPoints(raw) {
+            const out = [];
+            for (const p of raw) {
+                if (!isFinite(p.lat) || !isFinite(p.lon)) continue;
+                if (out.length && dist(out[out.length - 1], p) < 1) continue;
+                out.push(p);
+            }
+            return out;
+        }
+
+        function simplify(pts, tol) {
+            if (tol <= 0 || pts.length < 3) return pts;
+            const lat0 = pts[0].lat, lon0 = pts[0].lon;
+            const m = R * Math.PI / 180;
+            const k = Math.cos(rad(lat0)) * m;
+            const xy = pts.map((p) => [(p.lon - lon0) * k, (p.lat - lat0) * m]);
+            const keep = new Uint8Array(pts.length);
+            keep[0] = 1; keep[pts.length - 1] = 1;
+            const stack = [[0, pts.length - 1]];
+            while (stack.length) {
+                const [s, e] = stack.pop();
+                if (e <= s + 1) continue;
+                const ax = xy[s][0], ay = xy[s][1], bx = xy[e][0], by = xy[e][1];
+                const dx = bx - ax, dy = by - ay, L2 = dx * dx + dy * dy;
+                let maxD = -1, idx = -1;
+                for (let i = s + 1; i < e; i++) {
+                    const px = xy[i][0], py = xy[i][1];
+                    let t = L2 ? ((px - ax) * dx + (py - ay) * dy) / L2 : 0;
+                    t = Math.max(0, Math.min(1, t));
+                    const dd = Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+                    if (dd > maxD) { maxD = dd; idx = i; }
+                }
+                if (maxD > tol) { keep[idx] = 1; stack.push([s, idx], [idx, e]); }
+            }
+            return pts.filter((_, i) => keep[i]);
+        }
+
+        function cumul(pts) {
+            const d = [0];
+            for (let i = 1; i < pts.length; i++) d.push(d[i - 1] + dist(pts[i - 1], pts[i]));
+            return d;
+        }
+
+        function classify(delta) {
+            const a = Math.abs(delta);
+            const right = delta > 0;
+            const side = right ? 'right' : 'left';
+            const nl = right ? 'rechts' : 'links';
+            const Side = right ? 'Right' : 'Left';
+            if (a < 40) return { type: `Slight_${side}_turn`, name: `Turn slight ${side}`, label: `licht ${nl}` };
+            if (a < 135) return { type: `${Side}_turn`, name: `Turn ${side}`, label: nl };
+            return { type: `Sharp_${side}_turn`, name: `Turn sharp ${side}`, label: `scherp ${nl}` };
+        }
+
+        function detectTurns(pts, d, opt) {
+            const n = pts.length;
+            const w = opt.window;
+            const cands = [];
+            let jb = 0, jf = 0;
+            for (let i = 0; i < n; i++) {
+                if (d[i] < w || d[n - 1] - d[i] < w) continue;
+                while (jb + 1 < i && d[jb + 1] <= d[i] - w) jb++;
+                jf = Math.max(jf, i + 1);
+                while (jf < n - 1 && d[jf] < d[i] + w) jf++;
+                const delta = angDiff(bearing(pts[jb], pts[i]), bearing(pts[i], pts[jf]));
+                if (Math.abs(delta) >= opt.minAngle) cands.push({ i, delta });
+            }
+            cands.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+            const gap = Math.max(opt.gap, w);
+            const accepted = [];
+            for (const c of cands) {
+                if (accepted.every((a) => Math.abs(d[a.i] - d[c.i]) >= gap)) accepted.push(c);
+            }
+            accepted.sort((a, b) => a.i - b.i);
+            return accepted.map((c) => Object.assign({ index: c.i, delta: c.delta, at: d[c.i] }, classify(c.delta)));
+        }
+
+        function esc(s) {
+            return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+        }
+
+        function buildGpx(name, pts, turns, anchorMode) {
+            const n = pts.length;
+            const c = (v) => v.toFixed(6).replace(/0+$/, '').replace(/\.$/, '');
+            const wpt = (p, nm, type, desc) =>
+                `<wpt lat="${c(p.lat)}" lon="${c(p.lon)}"><name>${esc(nm)}</name>${desc ? `<desc>${desc}</desc>` : ''}<type>${type}</type></wpt>`;
+            const lines = [];
+            lines.push('<?xml version="1.0" encoding="UTF-8"?>');
+            lines.push('<gpx creator="Suunto Routeplanner" version="1.1"');
+            lines.push('  xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd"');
+            lines.push('  xmlns="http://www.topografix.com/GPX/1/1"');
+            lines.push('  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"');
+            lines.push('  xmlns:suunto-rp="http://www.suunto.com/routeplanner/gpx/1.0">');
+            lines.push('<metadata>');
+            lines.push(`  <name>${esc(name)}</name>`);
+            lines.push('  <desc>Route created with Suunto Routeplanner</desc>');
+            lines.push('</metadata>');
+            lines.push('');
+            lines.push('<!-- Route begin and end waypoints -->');
+            lines.push(wpt(pts[0], 'Begin', 'Begin', 'Auto-generated'));
+            lines.push(wpt(pts[n - 1], 'End', 'End', 'Auto-generated'));
+            lines.push('<!-- Turn guidance waypoints -->');
+            for (const t of turns) lines.push(wpt(pts[t.index], t.name, t.type));
+            let indices = [0, n - 1];
+            if (anchorMode === 'turns' && turns.length) {
+                lines.push('<!-- Route waypoints -->');
+                turns.forEach((t, k) => lines.push(wpt(pts[t.index], `Waypoint ${k + 1}`, 'Waypoint', 'Auto-generated')));
+                indices = [0].concat(turns.map((t) => t.index), [n - 1]);
+            }
+            lines.push('<!-- Route points -->');
+            lines.push('<rte>');
+            lines.push(`  <name>${esc(name)}</name>`);
+            lines.push('  <desc>Route created with Suunto Routeplanner</desc>');
+            lines.push(`  <extensions><suunto-rp:waypointIndices>${indices.join(',')}</suunto-rp:waypointIndices></extensions>`);
+            for (const p of pts) {
+                const ele = p.ele == null || !isFinite(p.ele) ? 0 : Math.round(p.ele);
+                lines.push(`  <rtept lat="${c(p.lat)}" lon="${c(p.lon)}"><ele>${ele}</ele></rtept>`);
+            }
+            lines.push('</rte>');
+            lines.push('</gpx>');
+            return lines.join('\n') + '\n';
+        }
+        // CORE-END
+
+        (function () {
+            'use strict';
+            const $ = (id) => document.getElementById(id);
+            const fmt = (v, dec) => v.toLocaleString('en-GB', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+            const capital = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+            // classify() carries a Dutch UI label; the English one comes from the Suunto name ("Turn slight left").
+            const turnLabel = (t) => capital(t.name.replace(/^Turn /, ''));
+
+            let source = null;   // { name, fileBase, raw }
+            let current = null;  // { gpx, pts, turns }
+
+            function parseGpx(text, fallbackName) {
+                const doc = new DOMParser().parseFromString(text, 'application/xml');
+                if (doc.getElementsByTagName('parsererror').length) throw new Error('This file isn\'t a valid GPX. Export it again as GPX and try once more.');
+                const all = (tag) => Array.from(doc.getElementsByTagNameNS('*', tag));
+                let els = all('trkpt');
+                if (!els.length) els = all('rtept');
+                if (!els.length) throw new Error('No track or route points found in this file. Is it a GPX with a route in it?');
+                const raw = els.map((e) => {
+                    const ele = e.getElementsByTagNameNS('*', 'ele')[0];
+                    return {
+                        lat: parseFloat(e.getAttribute('lat')),
+                        lon: parseFloat(e.getAttribute('lon')),
+                        ele: ele ? parseFloat(ele.textContent) : null
+                    };
+                });
+                let name = '';
+                const holder = all('trk')[0] || all('rte')[0];
+                if (holder) {
+                    for (const ch of holder.children) if (ch.localName === 'name' && ch.textContent.trim()) { name = ch.textContent.trim(); break; }
+                }
+                if (!name) {
+                    const meta = all('metadata')[0];
+                    if (meta) for (const ch of meta.children) if (ch.localName === 'name' && ch.textContent.trim()) { name = ch.textContent.trim(); break; }
+                }
+                return { name: name || fallbackName, raw };
+            }
+
+            function params() {
+                const num = (id, def) => { const v = parseFloat($(id).value); return isFinite(v) ? v : def; };
+                return {
+                    minAngle: num('minAngle', 35),
+                    window: Math.max(5, num('win', 20)),
+                    gap: Math.max(1, num('gap', 25)),
+                    tol: Math.max(0, num('tol', 2)),
+                    anchors: $('anchors').value
+                };
+            }
+
+            // Small authored turn glyph: stem from below, then the bend at the turn's real angle.
+            function turnIcon(delta) {
+                const a = Math.max(-150, Math.min(150, delta)) * Math.PI / 180;
+                const x = (12 + Math.sin(a) * 8).toFixed(1), y = (11 - Math.cos(a) * 8).toFixed(1);
+                return `<svg class="turn-list__icon icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22V11L${x} ${y}"/><circle cx="12" cy="22" r="0.6"/></svg>`;
+            }
+
+            function dotRadius(t) {
+                if (t.type.startsWith('Slight')) return 4.5;
+                if (t.type.startsWith('Sharp')) return 7.5;
+                return 6;
+            }
+
+            function drawMap(pts, turns) {
+                const W = 640, H = 400, pad = 18;
+                let minLat = Infinity, maxLat = -Infinity, minLon = Infinity, maxLon = -Infinity;
+                for (const p of pts) {
+                    minLat = Math.min(minLat, p.lat); maxLat = Math.max(maxLat, p.lat);
+                    minLon = Math.min(minLon, p.lon); maxLon = Math.max(maxLon, p.lon);
+                }
+                const k = Math.cos(rad((minLat + maxLat) / 2));
+                const spanX = Math.max((maxLon - minLon) * k, 1e-9), spanY = Math.max(maxLat - minLat, 1e-9);
+                const s = Math.min((W - 2 * pad) / spanX, (H - 2 * pad) / spanY);
+                const offX = (W - spanX * s) / 2, offY = (H - spanY * s) / 2;
+                const X = (p) => (offX + (p.lon - minLon) * k * s).toFixed(1);
+                const Y = (p) => (H - offY - (p.lat - minLat) * s).toFixed(1);
+                const line = pts.map((p) => `${X(p)},${Y(p)}`).join(' ');
+                let svg = `<svg class="bib__plot" viewBox="0 0 ${W} ${H}" role="img" aria-label="Map of the route with ${turns.length} turns marked">`;
+                svg += `<polyline class="bib__route" pathLength="1" points="${line}"/>`;
+                turns.forEach((t, i) => {
+                    const p = pts[t.index];
+                    svg += `<circle class="bib__turn" data-i="${i}" cx="${X(p)}" cy="${Y(p)}" r="${dotRadius(t)}"><title>${esc(turnLabel(t))} at ${fmt(t.at / 1000, 2)} km</title></circle>`;
+                });
+                const a = pts[0], z = pts[pts.length - 1];
+                svg += `<rect class="bib__finish" x="${Number(X(z)) - 6.5}" y="${Number(Y(z)) - 6.5}" width="13" height="13"><title>Finish</title></rect>`;
+                svg += `<circle class="bib__start" cx="${X(a)}" cy="${Y(a)}" r="7"><title>Start</title></circle>`;
+                svg += '</svg>';
+                $('map').innerHTML = svg;
+            }
+
+            function drawList(turns) {
+                const ol = $('turnList');
+                ol.innerHTML = '';
+                if (!turns.length) {
+                    const li = document.createElement('li');
+                    li.className = 'turn-list__item';
+                    li.dataset.state = 'empty';
+                    li.textContent = 'No turns found. Open Adjust turn detection and lower the minimum turn angle or the look-around distance.';
+                    ol.appendChild(li);
+                    return;
+                }
+                turns.forEach((t, i) => {
+                    const li = document.createElement('li');
+                    li.className = 'turn-list__item';
+                    li.dataset.i = i;
+                    li.innerHTML = turnIcon(t.delta);
+                    const a = document.createElement('span');
+                    a.className = 'turn-list__label';
+                    a.textContent = turnLabel(t);
+                    const b = document.createElement('span');
+                    b.className = 'turn-list__km';
+                    b.textContent = `${fmt(t.at / 1000, 2)} km`;
+                    li.append(a, b);
+                    ol.appendChild(li);
+                });
+            }
+
+            function setFlag(el, name, on) {
+                if (on) el.dataset[name] = ''; else delete el.dataset[name];
+            }
+
+            function hot(i, on) {
+                for (const el of document.querySelectorAll(`.bib__turn[data-i="${i}"], .turn-list__item[data-i="${i}"]`)) {
+                    if (on) el.dataset.state = 'hot'; else delete el.dataset.state;
+                }
+                setFlag($('bib'), 'focus', on);
+            }
+
+            // Gain with a 3 m hysteresis so GPS noise doesn't add phantom metres.
+            function elevation(pts) {
+                const e = pts.map((p) => p.ele).filter((v) => v != null && isFinite(v) && v !== 0);
+                if (e.length < 2) return null;
+                let gain = 0, ref = e[0];
+                for (const v of e) {
+                    if (v - ref >= 3) { gain += v - ref; ref = v; } else if (ref - v >= 3) ref = v;
+                }
+                return { gain: Math.round(gain), max: Math.round(e.reduce((m, v) => Math.max(m, v), -Infinity)) };
+            }
+
+            function setStats(gain, max, points) {
+                $('stats').innerHTML = '';
+                [['Elevation gain', gain], ['Highest point', max], ['Route points', points]].forEach(([k, v]) => {
+                    const div = document.createElement('div');
+                    const dt = document.createElement('dt'); dt.className = 'bib__stat-label'; dt.textContent = k;
+                    const dd = document.createElement('dd'); dd.className = 'bib__stat-value'; dd.textContent = v;
+                    div.append(dt, dd); $('stats').appendChild(div);
+                });
+            }
+
+            function run() {
+                if (!source) return;
+                const p = params();
+                let pts = cleanPoints(source.raw);
+                if (pts.length < 2) { showError('Too few usable points are left to make a route from this file.'); return; }
+                pts = simplify(pts, p.tol);
+                const d = cumul(pts);
+                const turns = detectTurns(pts, d, { minAngle: p.minAngle, window: p.window, gap: p.gap });
+                const gpx = buildGpx(source.name, pts, turns, p.anchors);
+                current = { gpx, pts, turns };
+
+                $('bibName').textContent = source.name;
+                $('bibTurns').textContent = String(turns.length).padStart(2, '0');
+                $('bibTurnsLabel').textContent = turns.length === 1 ? 'turn found' : 'turns found';
+                $('bibKm').textContent = `over ${fmt(d[d.length - 1] / 1000, 1)} km`;
+                drawMap(pts, turns);
+                drawList(turns);
+                const el = elevation(pts);
+                setStats(el ? `${el.gain.toLocaleString('en-GB')} m` : '–', el ? `${el.max.toLocaleString('en-GB')} m` : '–', pts.length.toLocaleString('en-GB'));
+                $('download').disabled = false;
+
+                const msg = $('msg');
+                delete msg.dataset.tone;
+                msg.textContent = '';
+                const flat = source.raw.every((q) => q.ele == null || !isFinite(q.ele) || q.ele === 0);
+                if (flat) {
+                    msg.dataset.tone = 'warn';
+                    msg.textContent = 'This file has no usable elevation data, so the elevation profile on your watch will probably be flat. Turn-by-turn still works.';
+                }
+                ['after', 'tune', 'turns'].forEach((id) => { $(id).hidden = false; });
+            }
+
+            function showError(text) {
+                const msg = $('msg');
+                msg.dataset.tone = 'error';
+                msg.textContent = text;
+                current = null;
+                $('download').disabled = true;
+            }
+
+            function loadFile(file) {
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onerror = () => showError('The file couldn\'t be read. Try choosing it again.');
+                reader.onload = () => {
+                    try {
+                        const base = file.name.replace(/\.[^.]+$/, '');
+                        const parsed = parseGpx(String(reader.result), base);
+                        source = { name: parsed.name, fileBase: base, raw: parsed.raw };
+                        run();
+                        if (!current) return;
+                        $('pickLabel').textContent = 'Choose another GPX file';
+                        const bib = $('bib');
+                        setFlag(bib, 'drawing', false);
+                        void bib.offsetWidth;
+                        setFlag(bib, 'drawing', true);
+                        const r = bib.getBoundingClientRect();
+                        if (r.top > window.innerHeight * .6) {
+                            const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                            bib.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+                        }
+                    } catch (err) {
+                        source = null;
+                        showError(err.message || 'This file couldn\'t be processed.');
+                    }
+                };
+                reader.readAsText(file);
+            }
+
+            $('file').addEventListener('change', (e) => { loadFile(e.target.files[0]); e.target.value = ''; });
+
+            // The whole page is a drop target; the button stays the primary input.
+            let depth = 0;
+            const hasFiles = (e) => e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files');
+            document.addEventListener('dragenter', (e) => { if (!hasFiles(e)) return; e.preventDefault(); depth++; setFlag(document.body, 'dragging', true); });
+            document.addEventListener('dragover', (e) => { if (hasFiles(e)) e.preventDefault(); });
+            document.addEventListener('dragleave', () => { depth = Math.max(0, depth - 1); if (!depth) setFlag(document.body, 'dragging', false); });
+            document.addEventListener('drop', (e) => {
+                if (!hasFiles(e)) return;
+                e.preventDefault();
+                depth = 0;
+                setFlag(document.body, 'dragging', false);
+                loadFile(e.dataTransfer.files[0]);
+            });
+
+            let timer = null;
+            ['minAngle', 'win', 'gap', 'tol', 'anchors'].forEach((id) => {
+                $(id).addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(run, 150); });
+            });
+
+            const list = $('turnList');
+            const fromLi = (e) => e.target.closest('.turn-list__item[data-i]');
+            list.addEventListener('mouseover', (e) => { const li = fromLi(e); if (li) hot(li.dataset.i, true); });
+            list.addEventListener('mouseout', (e) => { const li = fromLi(e); if (li) hot(li.dataset.i, false); });
+            $('map').addEventListener('mouseover', (e) => { const c = e.target.closest('.bib__turn'); if (c) hot(c.dataset.i, true); });
+            $('map').addEventListener('mouseout', (e) => { const c = e.target.closest('.bib__turn'); if (c) hot(c.dataset.i, false); });
+
+            $('download').addEventListener('click', () => {
+                if (!current) return;
+                const safe = (source.fileBase || 'route').replace(/[^\w\-. ]+/g, '_');
+                const blob = new Blob([current.gpx], { type: 'application/gpx+xml' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${safe}-suunto.gpx`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
+            });
+        })();
+    </script>
+</body>
+
+</html>
